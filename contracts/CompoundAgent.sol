@@ -34,6 +34,13 @@ contract CompoundAgent is
      */
     event ConfigureAdmin(address indexed account, bool newStatus);
 
+    /**
+     * @dev Emitted when a cap of mint-on-debt-collection operation is configured.
+     * @param oldCap The previous value of the mint cap.
+     * @param newCap The new value of the mint cap.
+     */
+    event SetMintOnDebtCollectionCap(uint256 oldCap, uint256 newCap);
+
     // -------------------- Errors -----------------------------------
 
     /// @dev An admin account is already configured.
@@ -65,6 +72,12 @@ contract CompoundAgent is
 
     /// @dev A new owner is the same as previously set one.
     error OwnerUnchanged();
+
+    /// @dev The cap of mint-on-debt-collection operation is exceeded.
+    error MintOnDebtCollectionCapExcess();
+
+    /// @dev The cap of mint-on-debt-collection operation is unchanged.
+    error MintOnDebtCollectionCapUnchanged();
 
     // -------------------- Modifiers -----------------------------------
 
@@ -231,11 +244,40 @@ contract CompoundAgent is
     }
 
     /**
+     * @dev See {ICompoundAgent-mintOnDebtCollection}.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     * - The contract must not be paused.
+     * - The amount of underlying tokens to mint must not exceed the configured cap.
+     */
+    function mintOnDebtCollection(address borrower, uint256 mintAmount) external onlyAdmin whenNotPaused {
+        if (mintAmount > _mintOnDebtCollectionCap) {
+            revert MintOnDebtCollectionCapExcess();
+        }
+
+        emit MintOnDebtCollection(borrower, mintAmount);
+
+        ICToken cToken = ICToken(_market);
+        IERC20Mintable uToken = IERC20Mintable(cToken.underlying());
+        if (!uToken.mint(address(this), mintAmount)) {
+            revert MintFailure();
+        }
+
+        uint256 result = cToken.mint(mintAmount);
+        if (result != 0) {
+            revert CompoundMarketFailure(result);
+        }
+    }
+
+    /**
      * @dev Configures an admin.
      *
      * Requirements:
      *
      * - The caller must be an owner.
+     * - The new status of the admin must defer from the previously set one.
      *
      * Emits a {ConfigureAdmin} event.
      *
@@ -253,6 +295,29 @@ contract CompoundAgent is
     }
 
     /**
+     * @dev Configures a new cap of mint-on-debt-collection operation in underlying tokens.
+     *
+     * Requirements:
+     *
+     * - The caller must be an owner.
+     * - The new mint cap must defer from the previously set one.
+     *
+     * Emits a {SetMintOnDebtCollectionCap} event.
+     *
+     * @param newCap The value of the new mint cap.
+     */
+    function setMintOnDebtCollectionCap(uint256 newCap) external onlyOwner {
+        uint256 oldCap = _mintOnDebtCollectionCap;
+        if (oldCap == newCap) {
+            revert MintOnDebtCollectionCapUnchanged();
+        }
+
+        _mintOnDebtCollectionCap = newCap;
+
+        emit SetMintOnDebtCollectionCap(oldCap, newCap);
+    }
+
+    /**
      * @dev See {ICompoundAgent-isAdmin}.
      */
     function isAdmin(address account) external view returns (bool) {
@@ -264,6 +329,13 @@ contract CompoundAgent is
      */
     function market() external view returns (address) {
         return _market;
+    }
+
+    /**
+     * @dev See {ICompoundAgent-mintOnDebtCollectionCap}.
+     */
+    function mintOnDebtCollectionCap() external view returns (uint256) {
+        return _mintOnDebtCollectionCap;
     }
 
     /**
