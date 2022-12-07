@@ -24,6 +24,13 @@ interface ICompoundAgent {
      */
     event RepayDefaultedBorrow(address indexed account, uint256 burnAmount);
 
+    /**
+     * @dev Emitted when cTokens are minted due to debt collection.
+     * @param borrower The address of the borrower associated with the debt collection.
+     * @param mintAmount The amount of underlying asset tokens to supply.
+     */
+    event MintOnDebtCollection(address borrower, uint256 mintAmount);
+
     // -------------------- Functions -----------------------------------
 
     /**
@@ -83,6 +90,15 @@ interface ICompoundAgent {
     ) external;
 
     /**
+     * @dev Mints and supplies underlying asset tokens into the market due to debt collection.
+     * @param borrower The address of the borrower associated with the debt collection.
+     * @param mintAmount The amount of underlying asset tokens to mint and supply.
+     *
+     * Emits a {MintOnDebtCollection} event.
+     */
+    function mintOnDebtCollection(address borrower, uint256 mintAmount) external;
+
+    /**
      * @dev Checks if the account is configured as a contract administrator.
      */
     function isAdmin(address account) external view returns (bool);
@@ -91,4 +107,9 @@ interface ICompoundAgent {
      * @dev Returns the address of the market contract.
      */
     function market() external view returns (address);
+
+    /**
+     * @dev Returns the cap of mint-on-debt-collection operation in underlying tokens.
+     */
+    function mintOnDebtCollectionCap() external view returns (uint256);
 }

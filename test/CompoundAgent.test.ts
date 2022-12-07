@@ -29,6 +29,7 @@ async function setUpFixture(func: any) {
 
 describe("Contract 'CompoundAgent'", function () {
   const TOKEN_AMOUNT_STUB = 123;
+  const BORROWER_ADDRESS_STUB = "0x0000000000000000000000000000000000000001";
 
   const MARKET_MINT_FUNCTION_BAD_RESULT = 12301;
   const MARKET_REDEEM_FUNCTION_BAR_RESULT = 12302;
@@ -40,10 +41,12 @@ describe("Contract 'CompoundAgent'", function () {
   const BORROW_IS_NOT_DEFAULTED = false;
 
   const EVENT_NAME_CONFIGURE_ADMIN = "ConfigureAdmin";
+  const EVENT_NAME_ENTER_MARKETS = "EnterMarkets";
+  const EVENT_NAME_MINT_ON_DEBT_COLLECTION = "MintOnDebtCollection";
+  const EVENT_NAME_OWNERSHIP_TRANSFERRED = "OwnershipTransferred";
   const EVENT_NAME_REPAY_TRUSTED_BORROW = "RepayTrustedBorrow";
   const EVENT_NAME_REPAY_DEFAULTED_BORROW = "RepayDefaultedBorrow";
-  const EVENT_NAME_OWNERSHIP_TRANSFERRED = "OwnershipTransferred";
-  const EVENT_NAME_ENTER_MARKETS = "EnterMarkets";
+  const EVENT_NAME_SET_MINT_ON_DEBT_COLLECTION_CAP = "SetMintOnDebtCollectionCap";
 
   const EVENT_NAME_MOCK_BORROW_BALANCE_CURRENT = "CTokenMockBorrowBalanceCurrent";
   const EVENT_NAME_MOCK_MINT_C_TOKEN = "CTokenMockMint";
@@ -65,6 +68,8 @@ describe("Contract 'CompoundAgent'", function () {
   const REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE = "CompoundMarketFailure";
   const REVERT_ERROR_IF_INPUT_ARRAYS_LENGTH_MISMATCH = "InputArraysLengthMismatch";
   const REVERT_ERROR_IF_MINT_FAILURE = "MintFailure";
+  const REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_EXCESS = "MintOnDebtCollectionCapExcess";
+  const REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_UNCHANGED = "MintOnDebtCollectionCapUnchanged";
   const REVERT_ERROR_IF_OWNER_IS_UNCHANGED = "OwnerUnchanged";
 
   let agentFactory: ContractFactory;
@@ -115,7 +120,7 @@ describe("Contract 'CompoundAgent'", function () {
     };
   }
 
-  async function beforeRepayTrustedBorrow(): Promise<AllContracts> {
+  async function deployAndConfigureAllContracts(): Promise<AllContracts> {
     const contracts = await deployAllContracts();
     await proveTx(contracts.agent.configureAdmin(admin.address, true));
     return contracts;
@@ -222,6 +227,48 @@ describe("Contract 'CompoundAgent'", function () {
     });
   });
 
+  describe("Function 'setMintOnDebtCollectionCap()'", () => {
+    it("Executes as expected and emits the correct event", async () => {
+      const { agent } = await setUpFixture(deployAllContracts);
+      const newCap = TOKEN_AMOUNT_STUB;
+
+      await expect(
+        agent.setMintOnDebtCollectionCap(newCap)
+      ).to.emit(
+        agent,
+        EVENT_NAME_SET_MINT_ON_DEBT_COLLECTION_CAP
+      ).withArgs(
+        0,
+        newCap
+      );
+      expect(await agent.mintOnDebtCollectionCap()).to.eq(newCap);
+    });
+
+    it("Is reverted if is called not by the owner", async () => {
+      const { agent } = await setUpFixture(deployAllContracts);
+      await expect(
+        agent.connect(stranger).setMintOnDebtCollectionCap(TOKEN_AMOUNT_STUB)
+      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
+    });
+
+    it("Is reverted if the new limit value equals the previously set one", async () => {
+      const { agent } = await setUpFixture(deployAllContracts);
+      let limit = 0;
+      expect(await agent.mintOnDebtCollectionCap()).to.eq(limit);
+
+      await expect(
+        agent.setMintOnDebtCollectionCap(limit)
+      ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_UNCHANGED);
+
+      limit = TOKEN_AMOUNT_STUB;
+      await proveTx(agent.setMintOnDebtCollectionCap(limit));
+
+      await expect(
+        agent.setMintOnDebtCollectionCap(limit)
+      ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_UNCHANGED);
+    });
+  });
+
   describe("Function 'mint()'", () => {
 
     describe("Executes as expected with the correspondent cToken function call if the token amount is", () => {
@@ -237,7 +284,7 @@ describe("Contract 'CompoundAgent'", function () {
         );
       }
 
-      it("Nonzero", async () => {
+      it("Non-zero", async () => {
         await checkExecutionOfMint({ tokenAmount: TOKEN_AMOUNT_STUB });
       });
 
@@ -387,7 +434,7 @@ describe("Contract 'CompoundAgent'", function () {
           inputTokenAmount: BigNumber
         }
       ) {
-        const { agent, cToken, uToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         const { isBorrowDefaulted, inputTokenAmount } = params;
         const isInputTokenAmountMaximum = inputTokenAmount === ethers.constants.MaxUint256;
         const actualTokenAmount = isInputTokenAmountMaximum ? TOKEN_AMOUNT_STUB - 1 : inputTokenAmount;
@@ -469,14 +516,14 @@ describe("Contract 'CompoundAgent'", function () {
 
     describe("Is reverted if", () => {
       it("It is called not by the admin", async () => {
-        const { agent } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await expect(
           agent.repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
       });
 
       it("The contract is paused", async () => {
-        const { agent } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(agent.setPauser(deployer.address));
         await proveTx(agent.pause());
         await expect(
@@ -485,7 +532,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'mint()' function of the underlying token fails", async () => {
-        const { agent, uToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(uToken.disableMint());
         await expect(
           agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
@@ -493,7 +540,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'repayBorrowBehalf()' function of cToken fails", async () => {
-        const { agent, cToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRepayBorrowBehalfResult(MARKET_REPAY_BORROW_BEHALF_BAD_RESULT));
         await expect(
           agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
@@ -503,7 +550,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'redeemUnderlying()' function of cToken fails", async () => {
-        const { agent, cToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRedeemUnderlyingResult(MARKET_REDEEM_UNDERLYING_BAD_RESULT));
         await expect(
           agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
@@ -522,7 +569,7 @@ describe("Contract 'CompoundAgent'", function () {
           lastInputTokenAmount: BigNumber
         }
       ) {
-        const { agent, cToken, uToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         const { isLastBorrowDefaulted, lastInputTokenAmount } = params;
         const isLastInputTokenAmountMaximum = lastInputTokenAmount === ethers.constants.MaxUint256;
         let lastActualTokenAmount = isLastInputTokenAmountMaximum ? TOKEN_AMOUNT_STUB - 1 : lastInputTokenAmount;
@@ -614,7 +661,7 @@ describe("Contract 'CompoundAgent'", function () {
 
     describe("Executes as expected if the input arrays are empty", () => {
       it("Without emitting any events", async () => {
-        const { agent, cToken, uToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
 
         const tx: TransactionResponse = await agent.connect(admin).repayTrustedBorrows([], [], []);
         await expect(tx).not.to.emit(agent, EVENT_NAME_REPAY_TRUSTED_BORROW);
@@ -629,14 +676,14 @@ describe("Contract 'CompoundAgent'", function () {
 
     describe("Is reverted if", () => {
       it("It is called not by the admin", async () => {
-        const { agent } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await expect(
           agent.repayTrustedBorrows([], [], [])
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
       });
 
       it("The contract is paused", async () => {
-        const { agent } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(agent.setPauser(deployer.address));
         await proveTx(agent.pause());
         await expect(
@@ -645,7 +692,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The length of input arrays mismatches", async () => {
-        const { agent } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
 
         await expect(
           agent.connect(admin).repayTrustedBorrows(
@@ -673,7 +720,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'mint()' function of the underlying token fails", async () => {
-        const { agent, uToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(uToken.disableMint());
         await expect(
           agent.connect(admin).repayTrustedBorrows(
@@ -685,7 +732,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'repayBorrowBehalf()' function of cToken fails", async () => {
-        const { agent, cToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRepayBorrowBehalfResult(MARKET_REPAY_BORROW_BEHALF_BAD_RESULT));
         await expect(
           agent.connect(admin).repayTrustedBorrows(
@@ -699,7 +746,7 @@ describe("Contract 'CompoundAgent'", function () {
       });
 
       it("The 'redeemUnderlying()' function of cToken fails", async () => {
-        const { agent, cToken } = await setUpFixture(beforeRepayTrustedBorrow);
+        const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRedeemUnderlyingResult(MARKET_REDEEM_UNDERLYING_BAD_RESULT));
         await expect(
           agent.connect(admin).repayTrustedBorrows(
@@ -710,6 +757,99 @@ describe("Contract 'CompoundAgent'", function () {
         ).to.be.revertedWithCustomError(
           agent, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE
         ).withArgs(MARKET_REDEEM_UNDERLYING_BAD_RESULT);
+      });
+    });
+  });
+
+  describe("Function 'mintOnDebtCollection()'", () => {
+
+    describe("Executes as expected with the correspondent cToken function call if", () => {
+      async function checkExecutionOfMintOnDebtCollection(params: { borrowerAddress: string, tokenAmount: number }) {
+        const { agent, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        const { borrowerAddress, tokenAmount } = params;
+        await proveTx(agent.setMintOnDebtCollectionCap(params.tokenAmount == 0 ? 1 : params.tokenAmount));
+
+        const tx = await agent.connect(admin).mintOnDebtCollection(borrowerAddress, tokenAmount);
+        await expect(tx).to.emit(agent, EVENT_NAME_MINT_ON_DEBT_COLLECTION).withArgs(borrowerAddress, tokenAmount);
+        await expect(tx).to.emit(cToken, EVENT_NAME_MOCK_MINT_C_TOKEN).withArgs(tokenAmount);
+        await expect(tx).to.emit(uToken, EVENT_NAME_MOCK_MINT).withArgs(agent.address, tokenAmount);
+      }
+
+      it("The underlying token amount is non-zero and the borrower address is non-zero", async () => {
+        await checkExecutionOfMintOnDebtCollection({
+          borrowerAddress: BORROWER_ADDRESS_STUB,
+          tokenAmount: TOKEN_AMOUNT_STUB
+        });
+      });
+
+      it("The underlying token amount is non-zero and the borrower address is zero", async () => {
+        await checkExecutionOfMintOnDebtCollection({
+          borrowerAddress: ethers.constants.AddressZero,
+          tokenAmount: TOKEN_AMOUNT_STUB
+        });
+      });
+
+      it("The underlying token amount is zero and the borrower address is non-zero", async () => {
+        await checkExecutionOfMintOnDebtCollection({
+          borrowerAddress: BORROWER_ADDRESS_STUB,
+          tokenAmount: 0
+        });
+      });
+
+      it("The underlying token amount is zero and the borrower address is zero", async () => {
+        await checkExecutionOfMintOnDebtCollection({
+          borrowerAddress: ethers.constants.AddressZero,
+          tokenAmount: 0
+        });
+      });
+    });
+
+    describe("Is reverted if", () => {
+      it("It is called not by the admin", async () => {
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
+        await expect(
+          agent.connect(stranger).mintOnDebtCollection(BORROWER_ADDRESS_STUB, TOKEN_AMOUNT_STUB)
+        ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
+      });
+
+      it("The contract is paused", async () => {
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(agent.setPauser(deployer.address));
+        await proveTx(agent.pause());
+
+        await expect(
+          agent.connect(admin).mintOnDebtCollection(BORROWER_ADDRESS_STUB, TOKEN_AMOUNT_STUB)
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
+      });
+
+      it("The underlying token amount exceeds the limit", async () => {
+        const { agent } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(agent.setMintOnDebtCollectionCap(TOKEN_AMOUNT_STUB));
+
+        await expect(
+          agent.connect(admin).mintOnDebtCollection(BORROWER_ADDRESS_STUB, TOKEN_AMOUNT_STUB + 1)
+        ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_EXCESS);
+      });
+
+      it("The 'mint()' function of the underlying token fails", async () => {
+        const { agent, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(agent.setMintOnDebtCollectionCap(TOKEN_AMOUNT_STUB));
+        await proveTx(uToken.disableMint());
+        await expect(
+          agent.connect(admin).mintOnDebtCollection(BORROWER_ADDRESS_STUB, TOKEN_AMOUNT_STUB)
+        ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_MINT_FAILURE);
+      });
+
+      it("The correspondent cToken function fails", async () => {
+        const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(agent.setMintOnDebtCollectionCap(TOKEN_AMOUNT_STUB));
+        await proveTx(cToken.setMintResult(MARKET_MINT_FUNCTION_BAD_RESULT));
+
+        await expect(
+          agent.connect(admin).mintOnDebtCollection(BORROWER_ADDRESS_STUB, TOKEN_AMOUNT_STUB)
+        ).to.be.revertedWithCustomError(
+          agent, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE
+        ).withArgs(MARKET_MINT_FUNCTION_BAD_RESULT);
       });
     });
   });

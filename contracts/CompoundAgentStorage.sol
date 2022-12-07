@@ -15,6 +15,15 @@ abstract contract CompoundAgentStorageV1 {
 }
 
 /**
+ * @title CompoundAgent storage version 2
+ * @author CloudWalk Inc.
+ */
+abstract contract CompoundAgentStorageV2 {
+    /// @dev The cap of mint-on-debt-collection operation in underlying tokens.
+    uint256 internal _mintOnDebtCollectionCap;
+}
+
+/**
  * @title CompoundAgent storage
  *
  * We are following Compound's approach of upgrading new contract implementations.
@@ -23,6 +32,6 @@ abstract contract CompoundAgentStorageV1 {
  * e.g. CompoundAgentStorage<versionNumber>, so finally it would look like
  * "contract CompoundAgentStorage is CompoundAgentStorageV1, CompoundAgentStorageV2".
  */
-abstract contract CompoundAgentStorage is CompoundAgentStorageV1 {
+abstract contract CompoundAgentStorage is CompoundAgentStorageV1, CompoundAgentStorageV2 {
 
 }
