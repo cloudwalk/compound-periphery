@@ -301,15 +301,6 @@ describe("Contract 'CompoundAgent'", function () {
         ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
       });
 
-      it("The contract is paused", async () => {
-        const { agent } = await setUpFixture(deployAllContracts);
-        await proveTx(agent.setPauser(deployer.address));
-        await proveTx(agent.pause());
-        await expect(
-          agent.mint(TOKEN_AMOUNT_STUB)
-        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
-      });
-
       it("The correspondent cToken function fails", async () => {
         const { agent, cToken } = await setUpFixture(deployAllContracts);
         await proveTx(cToken.setMintResult(MARKET_MINT_FUNCTION_BAD_RESULT));
@@ -353,15 +344,6 @@ describe("Contract 'CompoundAgent'", function () {
         ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
       });
 
-      it("The contract is paused", async () => {
-        const { agent } = await setUpFixture(deployAllContracts);
-        await proveTx(agent.setPauser(deployer.address));
-        await proveTx(agent.pause());
-        await expect(
-          agent.redeem(TOKEN_AMOUNT_STUB)
-        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
-      });
-
       it("The correspondent cToken function call fails", async () => {
         const { agent, cToken } = await setUpFixture(deployAllContracts);
         await proveTx(cToken.setRedeemResult(MARKET_REDEEM_FUNCTION_BAR_RESULT));
@@ -403,15 +385,6 @@ describe("Contract 'CompoundAgent'", function () {
         await expect(
           agent.connect(stranger).redeemUnderlying(TOKEN_AMOUNT_STUB)
         ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
-      });
-
-      it("The contract is paused", async () => {
-        const { agent } = await setUpFixture(deployAllContracts);
-        await proveTx(agent.setPauser(deployer.address));
-        await proveTx(agent.pause());
-        await expect(
-          agent.redeemUnderlying(TOKEN_AMOUNT_STUB)
-        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
       });
 
       it("The correspondent cToken function fails", async () => {

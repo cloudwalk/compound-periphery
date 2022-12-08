@@ -162,7 +162,7 @@ contract CompoundAgent is
      * - The caller must be an owner.
      * - The contract must not be paused.
      */
-    function mint(uint256 mintAmount) public override onlyOwner whenNotPaused {
+    function mint(uint256 mintAmount) public override onlyOwner {
         uint256 result = ICToken(_market).mint(mintAmount);
         if (result != 0) {
             revert CompoundMarketFailure(result);
@@ -177,7 +177,7 @@ contract CompoundAgent is
      * - The caller must be an owner.
      * - The contract must not be paused.
      */
-    function redeem(uint256 redeemAmount) external override onlyOwner whenNotPaused {
+    function redeem(uint256 redeemAmount) external override onlyOwner {
         uint256 result = ICToken(_market).redeem(redeemAmount);
         if (result != 0) {
             revert CompoundMarketFailure(result);
@@ -192,7 +192,7 @@ contract CompoundAgent is
      * - The caller must be an owner.
      * - The contract must not be paused.
      */
-    function redeemUnderlying(uint256 redeemAmount) public override onlyOwner whenNotPaused {
+    function redeemUnderlying(uint256 redeemAmount) public override onlyOwner {
         uint256 result = ICToken(_market).redeemUnderlying(redeemAmount);
         if (result != 0) {
             revert CompoundMarketFailure(result);
