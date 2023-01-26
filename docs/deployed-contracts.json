@@ -1,0 +1,68 @@
+[
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x18f7259eaF0d0C409126C06e895da222738816B8",
+    "market": 6
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x79339c994453AD8832Ff9DDAc9b78373AB1831F8",
+    "market": 5
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x562689c910361AE21D12EAdAFBfcA727B3BcbC24",
+    "market": 4
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x55AAEA6481816bbb49cA26F85f8E8Da8f11dC50E",
+    "market": 3
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x1eBB75FC503239067DcCE18d0227A5f7513EE840",
+    "market": 2
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2009,
+    "address": "0x4e14C88765FFFA7199345c049f3149feDf200124",
+    "market": 1
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2008,
+    "address": "0xE23dc96fAe16E0bf33F510459249dc2f4eE3B031",
+    "market": 5
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2008,
+    "address": "0xae47B1ecF0ebA42572a16e449052849451edf851",
+    "market": 4
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2008,
+    "address": "0xfe6316368cb40870cC068667a2469035Ad8668aD",
+    "market": 3
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2008,
+    "address": "0x146984904E85bD01B4DdbC9A6B648A1d52a3e1Ab",
+    "market": 2
+  },
+  {
+    "name": "CompoundAgent",
+    "chainId": 2008,
+    "address": "0x957d570c0d1de32e7a3Ce4093e2E101B0B60DA39",
+    "market": 1
+  }
+]
