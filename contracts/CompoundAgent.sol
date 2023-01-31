@@ -207,14 +207,14 @@ contract CompoundAgent is
      * - The caller must be an admin.
      * - The contract must not be paused.
      */
-    function repayTrustedBorrow(
+    function mintAndRepayTrustedBorrow(
         address borrower,
         uint256 repayAmount,
         bool defaulted
     ) external onlyAdmin whenNotPaused {
         ICToken cToken = ICToken(_market);
         IERC20Mintable uToken = IERC20Mintable(cToken.underlying());
-        _repayTrustedBorrow(cToken, uToken, borrower, repayAmount, defaulted);
+        _mintAndRepayTrustedBorrow(cToken, uToken, borrower, repayAmount, defaulted);
     }
 
     /**
@@ -225,7 +225,7 @@ contract CompoundAgent is
      * - The caller must be an admin.
      * - The contract must not be paused.
      */
-    function repayTrustedBorrows(
+    function mintAndRepayTrustedBorrows(
         address[] calldata borrowers,
         uint256[] calldata repayAmounts,
         bool[] calldata defaulted
@@ -239,7 +239,7 @@ contract CompoundAgent is
         IERC20Mintable uToken = IERC20Mintable(cToken.underlying());
 
         for (uint256 i = 0; i < len; ++i) {
-            _repayTrustedBorrow(cToken, uToken, borrowers[i], repayAmounts[i], defaulted[i]);
+            _mintAndRepayTrustedBorrow(cToken, uToken, borrowers[i], repayAmounts[i], defaulted[i]);
         }
     }
 
@@ -375,7 +375,7 @@ contract CompoundAgent is
      * @param repayAmount The amount of tokens to repay.
      * @param defaulted True if the borrow is defaulted.
      */
-    function _repayTrustedBorrow(
+    function _mintAndRepayTrustedBorrow(
         ICToken cToken,
         IERC20Mintable uToken,
         address borrower,

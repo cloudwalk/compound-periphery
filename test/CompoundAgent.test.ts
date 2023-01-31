@@ -399,9 +399,9 @@ describe("Contract 'CompoundAgent'", function () {
     });
   });
 
-  describe("Function 'repayTrustedBorrow()'", () => {
+  describe("Function 'mintAndRepayTrustedBorrow()'", () => {
     describe("Executes as expected if the borrow is", () => {
-      async function checkExecutionOfRepayTrustedBorrow(
+      async function checkExecutionOfMintAndRepayTrustedBorrow(
         params: {
           isBorrowDefaulted: boolean,
           inputTokenAmount: BigNumber
@@ -417,7 +417,7 @@ describe("Contract 'CompoundAgent'", function () {
         }
 
         const tx: TransactionResponse =
-          await agent.connect(admin).repayTrustedBorrow(user.address, inputTokenAmount, isBorrowDefaulted);
+          await agent.connect(admin).mintAndRepayTrustedBorrow(user.address, inputTokenAmount, isBorrowDefaulted);
 
         await expect(tx).to.emit(agent, EVENT_NAME_REPAY_TRUSTED_BORROW).withArgs(user.address, actualTokenAmount);
         await expect(tx).to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF).withArgs(user.address, actualTokenAmount);
@@ -442,21 +442,21 @@ describe("Contract 'CompoundAgent'", function () {
 
       describe("Defaulted and the token amount is", () => {
         it("Nonzero and less than 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: true,
             inputTokenAmount: BigNumber.from(TOKEN_AMOUNT_STUB)
           });
         });
 
         it("Equal to 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: true,
             inputTokenAmount: ethers.constants.MaxUint256
           });
         });
 
         it("Zero", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: true,
             inputTokenAmount: ethers.constants.Zero
           });
@@ -465,21 +465,21 @@ describe("Contract 'CompoundAgent'", function () {
 
       describe("Not defaulted and the token amount is", () => {
         it("Nonzero and less than 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: false,
             inputTokenAmount: BigNumber.from(TOKEN_AMOUNT_STUB)
           });
         });
 
         it("Equal to 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: false,
             inputTokenAmount: ethers.constants.MaxUint256
           });
         });
 
         it("Zero", async () => {
-          await checkExecutionOfRepayTrustedBorrow({
+          await checkExecutionOfMintAndRepayTrustedBorrow({
             isBorrowDefaulted: false,
             inputTokenAmount: ethers.constants.Zero
           });
@@ -491,7 +491,7 @@ describe("Contract 'CompoundAgent'", function () {
       it("It is called not by the admin", async () => {
         const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await expect(
-          agent.repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
+          agent.mintAndRepayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
       });
 
@@ -500,7 +500,7 @@ describe("Contract 'CompoundAgent'", function () {
         await proveTx(agent.setPauser(deployer.address));
         await proveTx(agent.pause());
         await expect(
-          agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
+          agent.connect(admin).mintAndRepayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
         ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
       });
 
@@ -508,7 +508,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(uToken.disableMint());
         await expect(
-          agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
+          agent.connect(admin).mintAndRepayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_MINT_FAILURE);
       });
 
@@ -516,7 +516,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRepayBorrowBehalfResult(MARKET_REPAY_BORROW_BEHALF_BAD_RESULT));
         await expect(
-          agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
+          agent.connect(admin).mintAndRepayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_NOT_DEFAULTED)
         ).to.be.revertedWithCustomError(
           agent, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE
         ).withArgs(MARKET_REPAY_BORROW_BEHALF_BAD_RESULT);
@@ -526,7 +526,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRedeemUnderlyingResult(MARKET_REDEEM_UNDERLYING_BAD_RESULT));
         await expect(
-          agent.connect(admin).repayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
+          agent.connect(admin).mintAndRepayTrustedBorrow(user.address, TOKEN_AMOUNT_STUB, BORROW_IS_DEFAULTED)
         ).to.be.revertedWithCustomError(
           agent, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE
         ).withArgs(MARKET_REDEEM_UNDERLYING_BAD_RESULT);
@@ -534,9 +534,9 @@ describe("Contract 'CompoundAgent'", function () {
     });
   });
 
-  describe("Function 'repayTrustedBorrows()'", () => {
+  describe("Function 'mintAndRepayTrustedBorrows()'", () => {
     describe("Executes as expected if the input arrays are not empty and the last borrow is", () => {
-      async function checkExecutionOfRepayTrustedBorrows(
+      async function checkExecutionOfMintAndRepayTrustedBorrows(
         params: {
           isLastBorrowDefaulted: boolean,
           lastInputTokenAmount: BigNumber
@@ -552,7 +552,7 @@ describe("Contract 'CompoundAgent'", function () {
         }
 
         const tx: TransactionResponse =
-          await agent.connect(admin).repayTrustedBorrows(
+          await agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB, lastInputTokenAmount],
             [BORROW_IS_NOT_DEFAULTED, isLastBorrowDefaulted]
@@ -587,21 +587,21 @@ describe("Contract 'CompoundAgent'", function () {
 
       describe("Defaulted and the token amount of the last borrow is", () => {
         it("Nonzero and less than 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: true,
             lastInputTokenAmount: BigNumber.from(TOKEN_AMOUNT_STUB + 1)
           });
         });
 
         it("Equal to 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: true,
             lastInputTokenAmount: ethers.constants.MaxUint256
           });
         });
 
         it("Zero", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: true,
             lastInputTokenAmount: ethers.constants.Zero
           });
@@ -610,21 +610,21 @@ describe("Contract 'CompoundAgent'", function () {
 
       describe("Not defaulted and the token amount of the last borrow is", () => {
         it("Nonzero and less than 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: false,
             lastInputTokenAmount: BigNumber.from(TOKEN_AMOUNT_STUB + 1)
           });
         });
 
         it("Equal to 'type(uint256).max'", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: false,
             lastInputTokenAmount: ethers.constants.MaxUint256
           });
         });
 
         it("Zero", async () => {
-          await checkExecutionOfRepayTrustedBorrows({
+          await checkExecutionOfMintAndRepayTrustedBorrows({
             isLastBorrowDefaulted: false,
             lastInputTokenAmount: ethers.constants.Zero
           });
@@ -636,7 +636,7 @@ describe("Contract 'CompoundAgent'", function () {
       it("Without emitting any events", async () => {
         const { agent, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
 
-        const tx: TransactionResponse = await agent.connect(admin).repayTrustedBorrows([], [], []);
+        const tx: TransactionResponse = await agent.connect(admin).mintAndRepayTrustedBorrows([], [], []);
         await expect(tx).not.to.emit(agent, EVENT_NAME_REPAY_TRUSTED_BORROW);
         await expect(tx).not.to.emit(agent, EVENT_NAME_REPAY_DEFAULTED_BORROW);
         await expect(tx).not.to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF);
@@ -651,7 +651,7 @@ describe("Contract 'CompoundAgent'", function () {
       it("It is called not by the admin", async () => {
         const { agent } = await setUpFixture(deployAndConfigureAllContracts);
         await expect(
-          agent.repayTrustedBorrows([], [], [])
+          agent.mintAndRepayTrustedBorrows([], [], [])
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
       });
 
@@ -660,7 +660,7 @@ describe("Contract 'CompoundAgent'", function () {
         await proveTx(agent.setPauser(deployer.address));
         await proveTx(agent.pause());
         await expect(
-          agent.connect(admin).repayTrustedBorrows([], [], [])
+          agent.connect(admin).mintAndRepayTrustedBorrows([], [], [])
         ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
       });
 
@@ -668,7 +668,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent } = await setUpFixture(deployAndConfigureAllContracts);
 
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address],
             [TOKEN_AMOUNT_STUB, TOKEN_AMOUNT_STUB],
             [BORROW_IS_DEFAULTED, BORROW_IS_NOT_DEFAULTED]
@@ -676,7 +676,7 @@ describe("Contract 'CompoundAgent'", function () {
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_INPUT_ARRAYS_LENGTH_MISMATCH);
 
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB],
             [BORROW_IS_DEFAULTED, BORROW_IS_NOT_DEFAULTED]
@@ -684,7 +684,7 @@ describe("Contract 'CompoundAgent'", function () {
         ).to.be.revertedWithCustomError(agent, REVERT_ERROR_IF_INPUT_ARRAYS_LENGTH_MISMATCH);
 
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB, TOKEN_AMOUNT_STUB],
             [BORROW_IS_DEFAULTED]
@@ -696,7 +696,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(uToken.disableMint());
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB, TOKEN_AMOUNT_STUB],
             [BORROW_IS_DEFAULTED, BORROW_IS_NOT_DEFAULTED]
@@ -708,7 +708,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRepayBorrowBehalfResult(MARKET_REPAY_BORROW_BEHALF_BAD_RESULT));
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB, TOKEN_AMOUNT_STUB],
             [BORROW_IS_DEFAULTED, BORROW_IS_NOT_DEFAULTED]
@@ -722,7 +722,7 @@ describe("Contract 'CompoundAgent'", function () {
         const { agent, cToken } = await setUpFixture(deployAndConfigureAllContracts);
         await proveTx(cToken.setRedeemUnderlyingResult(MARKET_REDEEM_UNDERLYING_BAD_RESULT));
         await expect(
-          agent.connect(admin).repayTrustedBorrows(
+          agent.connect(admin).mintAndRepayTrustedBorrows(
             [deployer.address, user.address],
             [TOKEN_AMOUNT_STUB, TOKEN_AMOUNT_STUB],
             [BORROW_IS_NOT_DEFAULTED, BORROW_IS_DEFAULTED]
