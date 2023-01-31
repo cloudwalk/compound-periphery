@@ -55,6 +55,9 @@ contract CompoundAgent is
     /// @dev Token minting failed.
     error MintFailure();
 
+    /// @dev Token transferring failed.
+    error TransferFromFailure();
+
     /// @dev The length of the input arrays does not match.
     error InputArraysLengthMismatch();
 
@@ -196,6 +199,49 @@ contract CompoundAgent is
         uint256 result = ICToken(_market).redeemUnderlying(redeemAmount);
         if (result != 0) {
             revert CompoundMarketFailure(result);
+        }
+    }
+
+    /**
+     * @dev See {ICompoundAgent-repayTrustedBorrow}.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     * - The contract must not be paused.
+     */
+    function repayTrustedBorrow(
+        address borrower,
+        uint256 repayAmount,
+        bool defaulted
+    ) external onlyAdmin whenNotPaused {
+        ICToken cToken = ICToken(_market);
+        _repayTrustedBorrow(cToken, cToken.underlying(), borrower, repayAmount, defaulted);
+    }
+
+    /**
+     * @dev See {ICompoundAgent-repayTrustedBorrows}.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     * - The contract must not be paused.
+     */
+    function repayTrustedBorrows(
+        address[] calldata borrowers,
+        uint256[] calldata repayAmounts,
+        bool[] calldata defaulted
+    ) external onlyAdmin whenNotPaused {
+        uint256 len = borrowers.length;
+        if (len != repayAmounts.length || len != defaulted.length) {
+            revert InputArraysLengthMismatch();
+        }
+
+        ICToken cToken = ICToken(_market);
+        address uToken = cToken.underlying();
+
+        for (uint256 i = 0; i < len; ++i) {
+            _repayTrustedBorrow(cToken, uToken, borrowers[i], repayAmounts[i], defaulted[i]);
         }
     }
 
@@ -375,6 +421,31 @@ contract CompoundAgent is
      * @param repayAmount The amount of tokens to repay.
      * @param defaulted True if the borrow is defaulted.
      */
+    function _repayTrustedBorrow(
+        ICToken cToken,
+        address uToken,
+        address borrower,
+        uint256 repayAmount,
+        bool defaulted
+    ) internal {
+        uint256 repaidAmount = _transferFromAndRepay(cToken, IERC20Upgradeable(uToken), borrower, repayAmount);
+        if (defaulted) {
+            _redeemAndBurn(cToken, IERC20Mintable(uToken), borrower, repaidAmount);
+        }
+    }
+
+    /**
+     * @dev Repays a borrow belonging to a trusted borrower.
+     *
+     * Emits a {RepayTrustedBorrow} event.
+     * Emits a {RepayDefaultedBorrow} event in the case of a defaulted borrow.
+     *
+     * @param cToken The address of the market.
+     * @param uToken The address of the underlying token.
+     * @param borrower The address of the borrower.
+     * @param repayAmount The amount of tokens to repay.
+     * @param defaulted True if the borrow is defaulted.
+     */
     function _mintAndRepayTrustedBorrow(
         ICToken cToken,
         IERC20Mintable uToken,
@@ -410,6 +481,38 @@ contract CompoundAgent is
 
         if (!uToken.mint(address(this), actualRepayAmount)) {
             revert MintFailure();
+        }
+
+        uint256 repayResult = cToken.repayBorrowBehalf(borrower, actualRepayAmount);
+        if (repayResult != 0) {
+            revert CompoundMarketFailure(repayResult);
+        }
+
+        emit RepayTrustedBorrow(borrower, actualRepayAmount);
+    }
+
+    /**
+     * @dev Transfers tokens and repays a borrow on behalf of a trusted borrower.
+     *
+     * Emits a {RepayTrustedBorrow} event.
+     *
+     * @param cToken The address of the market.
+     * @param uToken The address of the underlying token.
+     * @param borrower The address of the borrower being repaid.
+     * @param repayAmount The amount of tokens to repay.
+     */
+    function _transferFromAndRepay(
+        ICToken cToken,
+        IERC20Upgradeable uToken,
+        address borrower,
+        uint256 repayAmount
+    ) internal returns (uint256 actualRepayAmount) {
+        actualRepayAmount = repayAmount == type(uint256).max
+            ? repayAmount = cToken.borrowBalanceCurrent(borrower)
+            : repayAmount;
+
+        if (!uToken.transferFrom(borrower, address(this), actualRepayAmount)) {
+            revert TransferFromFailure();
         }
 
         uint256 repayResult = cToken.repayBorrowBehalf(borrower, actualRepayAmount);
