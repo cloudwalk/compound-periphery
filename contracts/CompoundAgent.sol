@@ -318,6 +318,19 @@ contract CompoundAgent is
     }
 
     /**
+     * @dev See {ICompoundAgent-redeemAndBurn}.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     * - The contract must not be paused.
+     */
+    function redeemAndBurn(address borrower, uint256 burnAmount) external onlyAdmin whenNotPaused {
+        ICToken cToken = ICToken(_market);
+        _redeemAndBurn(cToken, IERC20Mintable(cToken.underlying()), borrower, burnAmount);
+    }
+
+    /**
      * @dev Configures an admin.
      *
      * Requirements:

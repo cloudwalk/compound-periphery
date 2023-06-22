@@ -91,12 +91,23 @@ interface ICompoundAgent {
 
     /**
      * @dev Mints and supplies underlying asset tokens into the market due to debt collection.
-     * @param borrower The address of the borrower associated with the debt collection.
-     * @param mintAmount The amount of underlying asset tokens to mint and supply.
      *
      * Emits a {MintOnDebtCollection} event.
+     *
+     * @param borrower The address of the borrower associated with the debt collection.
+     * @param mintAmount The amount of underlying asset tokens to mint and supply.
      */
     function mintOnDebtCollection(address borrower, uint256 mintAmount) external;
+
+    /**
+     * @dev Redeems and burns tokens when a defaulted borrow is being repaid.
+     *
+     * Emits a {RepayDefaultedBorrow} event.
+     *
+     * @param borrower The address of the borrower being repaid.
+     * @param burnAmount The amount of tokens to burn.
+     */
+    function redeemAndBurn(address borrower, uint256 burnAmount) external;
 
     /**
      * @dev Checks if the account is configured as a contract administrator.
