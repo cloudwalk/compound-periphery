@@ -11,7 +11,8 @@
 ||| Market #3 | [0x55AAEA6481816bbb49cA26F85f8E8Da8f11dC50E](https://explorer.mainnet.cloudwalk.io/address/0x55AAEA6481816bbb49cA26F85f8E8Da8f11dC50E) |
 ||| Market #2 | [0x1eBB75FC503239067DcCE18d0227A5f7513EE840](https://explorer.mainnet.cloudwalk.io/address/0x1eBB75FC503239067DcCE18d0227A5f7513EE840) |
 ||| Market #1 | [0x4e14C88765FFFA7199345c049f3149feDf200124](https://explorer.mainnet.cloudwalk.io/address/0x4e14C88765FFFA7199345c049f3149feDf200124) |
-| 3 | CompoundAgent | Proxy implementation | [0x0C1C012C1074B57DECeBaEf996D4DAb4B37a92FC](https://explorer.mainnet.cloudwalk.io/address/0x0C1C012C1074B57DECeBaEf996D4DAb4B37a92FC) |
+| 3 | CompoundAgent | Proxy implementation | [0x156c5e1e99C8414125E53592120389CB49CEd426](https://explorer.mainnet.cloudwalk.io/address/0x156c5e1e99C8414125E53592120389CB49CEd426) |
+|||| <strike>[0x0C1C012C1074B57DECeBaEf996D4DAb4B37a92FC](https://explorer.mainnet.cloudwalk.io/address/0x0C1C012C1074B57DECeBaEf996D4DAb4B37a92FC)</strike> |
 |||| <strike>[0xe998B68395494B789DeB45625f7dC0c04e7F7c64](https://explorer.mainnet.cloudwalk.io/address/0xe998B68395494B789DeB45625f7dC0c04e7F7c64)</strike> |
 |||| <strike>[0x792Da6FA32CEeEa688b981C2539eE7106bBBb6b6](https://explorer.mainnet.cloudwalk.io/address/0x792Da6FA32CEeEa688b981C2539eE7106bBBb6b6)</strike> |
 |||| <strike>[0x1E73292eAd7B8910198A255DA8B1F996a3C07974](https://explorer.mainnet.cloudwalk.io/address/0x1E73292eAd7B8910198A255DA8B1F996a3C07974)</strike> |
