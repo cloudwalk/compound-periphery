@@ -26,7 +26,8 @@
 ||| Market #3 | [0xfe6316368cb40870cC068667a2469035Ad8668aD](https://explorer.testnet.cloudwalk.io/address/0xfe6316368cb40870cC068667a2469035Ad8668aD) |
 ||| Market #2 | [0x146984904E85bD01B4DdbC9A6B648A1d52a3e1Ab](https://explorer.testnet.cloudwalk.io/address/0x146984904E85bD01B4DdbC9A6B648A1d52a3e1Ab) |
 ||| Market #1 | [0x957d570c0d1de32e7a3Ce4093e2E101B0B60DA39](https://explorer.testnet.cloudwalk.io/address/0x957d570c0d1de32e7a3Ce4093e2E101B0B60DA39) |
-| 3 | CompoundAgent | Proxy implementation | [0xB2c3341D9bB0Fe3B9c0A948370fac4f3117A1774](https://explorer.testnet.cloudwalk.io/address/0xB2c3341D9bB0Fe3B9c0A948370fac4f3117A1774) |
+| 3 | CompoundAgent | Proxy implementation | [0xC5bBC786761ba31B5b7672D29995EA8b06A2463e](https://explorer.testnet.cloudwalk.io/address/0xC5bBC786761ba31B5b7672D29995EA8b06A2463e) |
+|||| <strike>[0xB2c3341D9bB0Fe3B9c0A948370fac4f3117A1774](https://explorer.testnet.cloudwalk.io/address/0xB2c3341D9bB0Fe3B9c0A948370fac4f3117A1774)</strike> |
 |||| <strike>[0x0bbDA25E26bB4759e0b01f38507F99A03EFa0ef9](https://explorer.testnet.cloudwalk.io/address/0x0bbDA25E26bB4759e0b01f38507F99A03EFa0ef9)</strike> |
 |||| <strike>[0x3f7eC982aDD991d0C8c0253140998213fa753cf5](https://explorer.testnet.cloudwalk.io/address/0x3f7eC982aDD991d0C8c0253140998213fa753cf5)</strike> |
 |||| <strike>[0x70FC00929821a32108Bc18375B2DE286f301a74b](https://explorer.testnet.cloudwalk.io/address/0x70FC00929821a32108Bc18375B2DE286f301a74b)</strike> |
