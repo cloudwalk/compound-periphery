@@ -32,6 +32,4 @@ abstract contract CompoundAgentStorageV2 {
  * e.g. CompoundAgentStorage<versionNumber>, so finally it would look like
  * "contract CompoundAgentStorage is CompoundAgentStorageV1, CompoundAgentStorageV2".
  */
-abstract contract CompoundAgentStorage is CompoundAgentStorageV1, CompoundAgentStorageV2 {
-
-}
+abstract contract CompoundAgentStorage is CompoundAgentStorageV1, CompoundAgentStorageV2 {}
