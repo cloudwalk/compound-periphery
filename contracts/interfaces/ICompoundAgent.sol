@@ -61,7 +61,11 @@ interface ICompoundAgent {
      * @param repayAmount The amount of tokens to repay.
      * @param defaulted True if the borrow is defaulted.
      */
-    function repayTrustedBorrow(address borrower, uint256 repayAmount, bool defaulted) external;
+    function repayTrustedBorrow(
+        address borrower,
+        uint256 repayAmount,
+        bool defaulted
+    ) external;
 
     /**
      * @dev Repays borrows belonging to trusted borrowers.

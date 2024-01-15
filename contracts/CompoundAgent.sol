@@ -546,7 +546,12 @@ contract CompoundAgent is
      * @param borrower The address of the borrower being repaid.
      * @param burnAmount The amount of tokens to burn.
      */
-    function _redeemAndBurn(ICToken cToken, IERC20Mintable uToken, address borrower, uint256 burnAmount) internal {
+    function _redeemAndBurn(
+        ICToken cToken,
+        IERC20Mintable uToken,
+        address borrower,
+        uint256 burnAmount
+    ) internal {
         uint256 redeemResult = cToken.redeemUnderlying(burnAmount);
         if (redeemResult != 0) {
             revert CompoundMarketFailure(redeemResult);
