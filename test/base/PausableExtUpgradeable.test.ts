@@ -83,12 +83,9 @@ describe("Contract 'PausableExtUpgradeable'", async () => {
     it("Executes successfully and emits the correct event", async () => {
       const { pausableExtMock } = await setUpFixture(deployPausableExtMock);
 
-      await expect(
-        pausableExtMock.setPauser(pauser.address)
-      ).to.emit(
-        pausableExtMock,
-        EVENT_NAME_PAUSER_CHANGED
-      ).withArgs(pauser.address);
+      await expect(pausableExtMock.setPauser(pauser.address))
+        .to.emit(pausableExtMock, EVENT_NAME_PAUSER_CHANGED)
+        .withArgs(pauser.address);
       expect(await pausableExtMock.pauser()).to.equal(pauser.address);
 
       // The second call with the same argument should not emit an event
@@ -109,12 +106,9 @@ describe("Contract 'PausableExtUpgradeable'", async () => {
     it("Executes successfully and emits the correct event", async () => {
       const { pausableExtMock } = await setUpFixture(deployAndConfigurePausableExtMock);
 
-      await expect(
-        pausableExtMock.connect(pauser).pause()
-      ).to.emit(
-        pausableExtMock,
-        EVENT_NAME_PAUSED
-      ).withArgs(pauser.address);
+      await expect(pausableExtMock.connect(pauser).pause())
+        .to.emit(pausableExtMock, EVENT_NAME_PAUSED)
+        .withArgs(pauser.address);
 
       expect(await pausableExtMock.paused()).to.equal(true);
     });
@@ -132,12 +126,9 @@ describe("Contract 'PausableExtUpgradeable'", async () => {
       const { pausableExtMock } = await setUpFixture(deployAndConfigurePausableExtMock);
       await proveTx(pausableExtMock.connect(pauser).pause());
 
-      await expect(
-        pausableExtMock.connect(pauser).unpause()
-      ).to.emit(
-        pausableExtMock,
-        EVENT_NAME_UNPAUSED
-      ).withArgs(pauser.address);
+      await expect(pausableExtMock.connect(pauser).unpause())
+        .to.emit(pausableExtMock, EVENT_NAME_UNPAUSED)
+        .withArgs(pauser.address);
 
       expect(await pausableExtMock.paused()).to.equal(false);
     });
