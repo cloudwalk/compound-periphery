@@ -35,6 +35,7 @@ contract ERC20MintableMock is ERC20, IERC20Mintable {
      * @return True if the `mint()` function is not disabled.
      */
     function mint(address account, uint256 amount) external returns (bool) {
+        _mint(account, amount);
         emit ERC20MockMint(account, amount);
         return _mintDisabled ? false : true;
     }
