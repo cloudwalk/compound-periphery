@@ -13,7 +13,6 @@ interface HelperContracts {
 }
 
 interface AllContracts {
-  agent: Contract;
   relayer: Contract;
   comptroller: Contract;
   cToken: Contract;
@@ -27,7 +26,7 @@ interface Repayment {
   defaulted: boolean;
 }
 
-async function setUpFixture(func: any) {
+async function setUpFixture<T>(func: () => Promise<T>): Promise<T> {
   if (network.name === "hardhat") {
     return loadFixture(func);
   } else {
@@ -88,10 +87,6 @@ describe("Contract 'CompoundRelayer'", function () {
   const REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_UNCHANGED = "MintOnDebtCollectionCapUnchanged";
   const REVERT_ERROR_IF_OWNER_IS_UNCHANGED = "OwnerUnchanged";
 
-  // const MARKET_1_ADDRESS = ethers.utils.ripemd160("MARKET_1");
-
-
-  let agentFactory: ContractFactory;
   let relayerFactory: ContractFactory;
   let comptrollerFactory: ContractFactory;
   let cTokenFactory: ContractFactory;
@@ -105,7 +100,6 @@ describe("Contract 'CompoundRelayer'", function () {
 
   before(async () => {
     [deployer, admin, user, stranger, compoundPayer] = await ethers.getSigners();
-    agentFactory = await ethers.getContractFactory("CompoundAgent");
     relayerFactory = await ethers.getContractFactory("CompoundRelayer");
     comptrollerFactory = await ethers.getContractFactory("ComptrollerMock");
     cTokenFactory = await ethers.getContractFactory("CTokenMock");
@@ -131,13 +125,10 @@ describe("Contract 'CompoundRelayer'", function () {
 
   async function deployAllContracts(): Promise<AllContracts> {
     const { comptroller, cToken, uToken } = await deployHelperContracts();
-    const agent = await upgrades.deployProxy(agentFactory, [cToken.address]);
     const relayer = await upgrades.deployProxy(relayerFactory);
-    await agent.deployed();
     await relayer.deployed();
 
     return {
-      agent,
       relayer,
       comptroller,
       cToken,
@@ -147,20 +138,21 @@ describe("Contract 'CompoundRelayer'", function () {
 
   async function deployAndConfigureAllContracts(): Promise<AllContracts> {
     const contracts = await deployAllContracts();
-    await proveTx(contracts.agent.configureAdmin(admin.address, true));
+    await proveTx(contracts.relayer.configureAdmin(admin.address, true));
+    await proveTx(contracts.relayer.configureCompoundPayer(compoundPayer.address));
     return contracts;
   }
 
   describe("Function 'initialize()'", () => {
     it("Configures the contract as expected", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
 
       expect(await relayer.owner()).to.eq(deployer.address);
       expect(await relayer.isAdmin(deployer.address)).to.eq(false);
     });
 
     it("Is reverted if it is called a second time", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
       await expect(
         relayer.initialize()
       ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED);
@@ -186,20 +178,20 @@ describe("Contract 'CompoundRelayer'", function () {
     }
 
     it("Executes as expected and emits the correct event", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
       await checkExecutionOfConfigureAdmin({ relayer, newAdminStatus: true });
       await checkExecutionOfConfigureAdmin({ relayer, newAdminStatus: false });
     });
 
     it("Is reverted if is called not by the owner", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
       await expect(
         relayer.connect(stranger).configureAdmin(admin.address, true)
       ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
     });
 
     it("Is reverted if the new admin status equals the previously set one", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
       let adminStatus = false;
       expect(await relayer.isAdmin(admin.address)).to.eq(adminStatus);
 
@@ -218,37 +210,61 @@ describe("Contract 'CompoundRelayer'", function () {
   //
   describe("Function 'enterMarket()'", () => {
     it("Executes as expected and emits the correct event", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer, comptroller, cToken } = await setUpFixture(deployAllContracts);
       await expect(relayer.enterMarket(cToken.address))
         .to.emit(comptroller, EVENT_NAME_ENTER_MARKETS)
         .withArgs(cToken.address, 1);
+    });
+
+    it("Is reverted if is called not by the owner", async () => {
+      const { relayer, cToken } = await setUpFixture(deployAllContracts);
+      await expect(
+        relayer.connect(stranger).enterMarket(cToken.address)
+      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
     });
   });
 
   describe("Function 'configureCompoundPayer()'", () => {
     it("Executes as expected and emits the correct event", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer } = await setUpFixture(deployAllContracts);
       await expect(relayer.configureCompoundPayer(compoundPayer.address))
         .to.emit(relayer, EVENT_NAME_CONFIGURE_COMPOUND_PAYER)
         .withArgs(ZERO_ADDRESS, compoundPayer.address);
 
       expect(await relayer.compoundPayer()).to.eq(compoundPayer.address);
     });
+
+    it("Is reverted if is called not by the owner", async () => {
+      const { relayer } = await setUpFixture(deployAllContracts);
+      await expect(
+        relayer.connect(stranger).configureCompoundPayer(compoundPayer.address)
+      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
+    });
   });
 
   describe("Function 'rescueERC20()'", () => {
     it("Executes as expected and emits the correct event", async () => {
       const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const tokenAmount = 1000;
+      await proveTx(uToken.mint(relayer.address, tokenAmount));
 
-      await proveTx(uToken.mint(relayer.address, 1000));
-      expect(await uToken.balanceOf(relayer.address)).to.eq(1000);
+      await expect(
+        relayer.rescueERC20(uToken.address, admin.address, tokenAmount)
+      ).to.changeTokenBalances(
+        uToken,
+        [relayer, admin],
+        [-tokenAmount, +tokenAmount]
+      );
+    });
 
-      await proveTx(relayer.rescueERC20(uToken.address, admin.address, 1000));
-      expect(await uToken.balanceOf(admin.address)).to.eq(1000);
+    it("Is reverted if is called not by the owner", async () => {
+      const { relayer, uToken } = await setUpFixture(deployAllContracts);
+      await expect(
+        relayer.connect(stranger).rescueERC20(uToken.address, admin.address, 0)
+      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
     });
   });
-  //
-  // ////////////////////////////////////////
+
   describe("Function 'repayBorrowBehalf()'", () => {
     describe("Executes as expected if the borrow is", () => {
       async function checkExecutionOfRepayBorrowBehalf(params: {
@@ -256,12 +272,11 @@ describe("Contract 'CompoundRelayer'", function () {
         repayAmount: BigNumber;
         defaulted: boolean;
       }) {
-        const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
         const { borrower, repayAmount, defaulted } = params;
 
         let market: string = cToken.address;
         await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
-        await proveTx(relayer.configureAdmin(admin.address, true));
         const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalf(
           market,
           borrower,
@@ -272,6 +287,10 @@ describe("Contract 'CompoundRelayer'", function () {
         await expect(tx)
           .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
           .withArgs(borrower, repayAmount);
+
+        await expect(tx)
+          .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
+          .withArgs(compoundPayer.address, relayer.address, repayAmount);
 
         await expect(tx)
           .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
@@ -292,19 +311,25 @@ describe("Contract 'CompoundRelayer'", function () {
 
   describe("Function 'repayBorrowBehalfBatch()'", () => {
     describe("Executes as expected if the borrow is", () => {
-      async function checkExecutionOfRepayBorrowBehalfBatch(params:Repayment[], cToken: Contract, relayer: Contract) {
-        let borrower = params[0].borrower;
-        let repayAmount = params[0].repayAmount;
+      async function checkExecutionOfRepayBorrowBehalfBatch(repayments: Repayment[], contracts: AllContracts) {
+        const { relayer, cToken, uToken } = contracts;
+        let borrower = repayments[0].borrower;
+        let repayAmount = repayments[0].repayAmount;
 
-        // console.log(repayAmount.toBigInt());
-        console.log(borrower);
         await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
-        await proveTx(relayer.configureAdmin(admin.address, true));
-        const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalfBatch(params);
+        const paramsAsArrayOfTuples = repayments.map(
+          repayment =>
+            [repayment.market, repayment.borrower, repayment.repayAmount, repayment.defaulted]
+        );
+        const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples);
 
         await expect(tx)
           .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
           .withArgs(borrower, repayAmount);
+
+        await expect(tx)
+          .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
+          .withArgs(compoundPayer.address, relayer.address, repayAmount);
 
         await expect(tx)
           .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
@@ -313,16 +338,15 @@ describe("Contract 'CompoundRelayer'", function () {
 
       describe("Not Defaulted and the token amount is", () => {
         it("Nonzero", async () => {
-          const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+          const contracts: AllContracts = await setUpFixture(deployAndConfigureAllContracts);
           await checkExecutionOfRepayBorrowBehalfBatch(
             [{
-              market: cToken.address,
+              market: contracts.cToken.address,
               borrower: user.address,
               repayAmount: 1000,
               defaulted: false
             }],
-            cToken,
-            relayer
+            contracts
           );
         });
       });
