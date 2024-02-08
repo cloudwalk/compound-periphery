@@ -8,8 +8,7 @@ pragma solidity 0.8.16;
  * @dev The interface of the Compound operations wrapper contract.
  */
 interface ICompoundRelayer {
-    // -------------------- Structs -----------------------------------
-    /// @dev Structure with data of a repayments.
+    /// @dev Structure with data of a repayment.
     struct Repayment {
         address market;
         address borrower;
@@ -33,13 +32,26 @@ interface ICompoundRelayer {
      */
     event ConfigureCompoundPayer(address indexed oldPayer, address indexed newPayer);
 
-    // -------------------- Functions -----------------------------------
+    // -------------------- Functions --------------------------------
 
     /**
      * @dev Proxy function to enter markets.
      * @param market The address of the market.
      */
     function enterMarket(address market) external;
+
+    /**
+     * @dev Configures an admin.
+     * @param account The address of the admin account.
+     * @param newStatus The new status of the admin account.
+     */
+    function configureAdmin(address account, bool newStatus) external;
+
+    /**
+     * @dev Configures the compound payer account whose tokens are used to repay borrows.
+     * @param newCompoundPayer The address of the new compound payer.
+     */
+    function configureCompoundPayer(address newCompoundPayer) external;
 
     /**
      * @dev Repays a borrow on behalf of this compound relayer.
@@ -69,17 +81,13 @@ interface ICompoundRelayer {
      * - The caller must be an admin.
      * - The contract must not be paused.
      *
-     * @param repayments structs of repayments data.
+     * @param repayments Structures with the data of the repayments.
      */
     function repayBorrowBehalfBatch(
         Repayment[] calldata repayments
     ) external;
 
-    /**
-     * @dev Configures the compound payer account whose tokens are used to repay borrows.
-     * @param compoundPayer The address of the new compound payer.
-     */
-    function configureCompoundPayer(address compoundPayer) external;
+    // -------------------- View functions ---------------------------
 
     /**
      * @dev Returns the compound payer address.

@@ -29,6 +29,7 @@ contract CompoundRelayer is
     ICompoundRelayer
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
+
     // -------------------- Events -----------------------------------
 
     /**
@@ -80,7 +81,7 @@ contract CompoundRelayer is
     /// @dev The provided owner is the same as previously set one.
     error OwnerUnchanged();
 
-    // -------------------- Modifiers -----------------------------------
+    // -------------------- Modifiers ---------------------------------
 
     /**
      * @dev Throws if called by any account other than the admin.
@@ -92,7 +93,7 @@ contract CompoundRelayer is
         _;
     }
 
-    // -------------------- Functions -----------------------------------
+    // -------------------- Constructor ------------------------------
 
     /**
      * @dev Constructor that prohibits the initialization of the implementation of the upgradable contract.
@@ -106,10 +107,10 @@ contract CompoundRelayer is
         _disableInitializers();
     }
 
+    // -------------------- Initializers -----------------------------
+
     /**
      * @dev The initializer of the upgradable contract.
-     *
-     * See details https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable.
      */
     function initialize() external initializer {
         __CompoundRelayer_init();
@@ -117,8 +118,6 @@ contract CompoundRelayer is
 
     /**
      * @dev The internal initializer of the upgradable contract.
-     *
-     * See {CompoundRelayer-initialize}.
      */
     function __CompoundRelayer_init() internal onlyInitializing {
         __Context_init_unchained();
@@ -131,15 +130,15 @@ contract CompoundRelayer is
 
     /**
      * @dev The unchained internal initializer of the upgradable contract.
-     *
-     * See {CompoundRelayer-initialize}.
      */
     function __CompoundRelayer_init_unchained() internal onlyInitializing {}
 
+    // -------------------- Functions --------------------------------
+
     /**
-     * @dev See {ICompoundRelayer-enterMarket}.
+     * @inheritdoc ICompoundRelayer
      *
-     * Requirements:
+     * @dev Requirements:
      *
      * - The caller must be an owner.
      *
@@ -157,7 +156,51 @@ contract CompoundRelayer is
     }
 
     /**
-     * @dev See {ICompoundRelayer-repayBorrowBehalf}.
+     * @inheritdoc ICompoundRelayer
+     *
+     * @dev Requirements:
+     *
+     * - The caller must be an owner.
+     * - The new status of the admin must defer from the previously set one.
+     *
+     * Emits a {ConfigureAdmin} event.
+     */
+    function configureAdmin(address account, bool newStatus) external onlyOwner {
+        if (_admins[account] == newStatus) {
+            revert AdminAlreadyConfigured();
+        }
+
+        _admins[account] = newStatus;
+
+        emit ConfigureAdmin(account, newStatus);
+    }
+
+    /**
+     * @inheritdoc ICompoundRelayer
+     *
+     * @dev Requirements:
+     *
+     * - The caller must be an owner.
+     *
+     * Emits a {ConfigureCompoundPayer} event.
+     */
+    function configureCompoundPayer(address newCompoundPayer) external onlyOwner {
+        if (newCompoundPayer == address(0)) {
+            revert CompoundPayerInvalidAddress();
+        }
+
+        address oldCompoundPayer = _compoundPayer;
+        if (oldCompoundPayer == newCompoundPayer) {
+            revert CompoundPayerAlreadyConfigured();
+        }
+
+        _compoundPayer = newCompoundPayer;
+
+        emit ConfigureCompoundPayer(oldCompoundPayer, newCompoundPayer);
+    }
+
+    /**
+     * @inheritdoc ICompoundRelayer
      */
     function repayBorrowBehalf(
         address market,
@@ -170,7 +213,7 @@ contract CompoundRelayer is
     }
 
     /**
-     * @dev See {ICompoundRelayer-repayBorrowBehalfBatch}.
+     * @inheritdoc ICompoundRelayer
      */
     function repayBorrowBehalfBatch(
         Repayment[] calldata repayments
@@ -183,6 +226,43 @@ contract CompoundRelayer is
             _repayBorrowBehalf(cToken, uToken, repayments[i].borrower, repayments[i].amount, repayments[i].defaulted);
         }
     }
+
+    /**
+     * @dev Withdraws ERC20 tokens locked up in the contract.
+     *
+     * Requirements:
+     *
+     * - The caller must be the owner
+     *
+     * @param token The address of the ERC20 token contract.
+     * @param to The address of the recipient of tokens.
+     * @param amount The amount of tokens to withdraw.
+     */
+    function rescueERC20(
+        address token,
+        address to,
+        uint256 amount
+    ) public onlyOwner {
+        IERC20Upgradeable(token).safeTransfer(to, amount);
+    }
+
+    // -------------------- View functions ---------------------------
+
+    /**
+     * @inheritdoc ICompoundRelayer
+     */
+    function compoundPayer() external view returns (address) {
+        return _compoundPayer;
+    }
+
+    /**
+     * @inheritdoc ICompoundRelayer
+     */
+    function isAdmin(address account) external view returns (bool) {
+        return _admins[account];
+    }
+
+    // -------------------- Internal functions -----------------------
 
     /**
      * @dev Repays a borrow on behalf of this compound relayer.
@@ -261,84 +341,5 @@ contract CompoundRelayer is
         uToken.burn(burnAmount);
 
         emit RepayDefaultedBorrow(borrower, burnAmount);
-    }
-
-    /**
-     * @dev Configures an admin.
-     *
-     * Requirements:
-     *
-     * - The caller must be an owner.
-     * - The new status of the admin must defer from the previously set one.
-     *
-     * Emits a {ConfigureAdmin} event.
-     *
-     * @param account The address of the admin account.
-     * @param newStatus The new status of the admin account.
-     */
-    function configureAdmin(address account, bool newStatus) external onlyOwner {
-        if (_admins[account] == newStatus) {
-            revert AdminAlreadyConfigured();
-        }
-
-        _admins[account] = newStatus;
-
-        emit ConfigureAdmin(account, newStatus);
-    }
-
-    /**
-     * @dev See {ICompoundRelayer-configureCompoundPayer}.
-     * Requirements:
-     *
-     * - The caller must be an owner.
-     *
-     * Emits a {ConfigureCompoundPayer} event.
-     */
-    function configureCompoundPayer(address compoundPayer) external onlyOwner {
-        address oldCompoundPayer = _compoundPayer;
-        if (compoundPayer == address(0)) {
-            revert CompoundPayerInvalidAddress();
-        }
-
-        if (compoundPayer == oldCompoundPayer) {
-            revert CompoundPayerAlreadyConfigured();
-        }
-
-        _compoundPayer = compoundPayer;
-
-        emit ConfigureCompoundPayer(oldCompoundPayer, _compoundPayer);
-    }
-
-    /**
-     * @dev Withdraws ERC20 tokens locked up in the contract.
-     *
-     * Requirements:
-     *
-     * - The caller must be the owner
-     *
-     * @param token The address of the ERC20 token contract.
-     * @param to The address of the recipient of tokens.
-     * @param amount The amount of tokens to withdraw.
-     */
-    function rescueERC20(
-        address token,
-        address to,
-        uint256 amount
-    ) public onlyOwner {
-        IERC20Upgradeable(token).safeTransfer(to, amount);
-    }
-
-    /**
-     * @dev See {ICompoundRelayer-compoundPayer}.
-     */
-    function compoundPayer() external view returns (address) {
-        return _compoundPayer;
-    }
-
-    /**
-     * @dev See {ICompoundRelayer-isAdmin}.
-     */
-    function isAdmin(address account) external view returns (bool) {
-        return _admins[account];
     }
 }
