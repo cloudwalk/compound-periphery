@@ -9,7 +9,6 @@ import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/
 
 import { PausableExtUpgradeable } from "./base/PausableExtUpgradeable.sol";
 
-import { IERC20Mintable } from "./interfaces/IERC20Mintable.sol";
 import { ICToken } from "./interfaces/ICToken.sol";
 import { IComptroller } from "./interfaces/IComptroller.sol";
 
@@ -39,13 +38,6 @@ contract CompoundRelayer is
      */
     event ConfigureAdmin(address indexed account, bool newStatus);
 
-    /**
-     * @dev Emitted when a defaulted borrow is repaid.
-     * @param borrower The address of the borrower.
-     * @param burnAmount The amount of tokens that has been burned.
-     */
-    event RepayDefaultedBorrow(address indexed borrower, uint256 burnAmount);
-
     // -------------------- Errors -----------------------------------
 
     /// @dev The provided compound payer address is invalid.
@@ -63,9 +55,6 @@ contract CompoundRelayer is
     /// @dev Token transferring failed.
     error TransferFromFailure();
 
-    /// @dev The length of the input arrays does not match.
-    error InputArraysLengthMismatch();
-
     /**
      * @dev An error occurred on the Compound comptroller.
      * @param compError The code of the error that occurred.
@@ -77,9 +66,6 @@ contract CompoundRelayer is
      * @param compError The code of the error that occurred.
      */
     error CompoundMarketFailure(uint256 compError);
-
-    /// @dev The provided owner is the same as previously set one.
-    error OwnerUnchanged();
 
     // -------------------- Modifiers ---------------------------------
 
@@ -205,11 +191,9 @@ contract CompoundRelayer is
     function repayBorrowBehalf(
         address market,
         address borrower,
-        uint256 repayAmount,
-        bool defaulted
+        uint256 repayAmount
     ) external onlyAdmin whenNotPaused {
-        ICToken cToken = ICToken(market);
-        _repayBorrowBehalf(cToken, cToken.underlying(), borrower, repayAmount, defaulted);
+        _repayBorrowBehalf(market, borrower, repayAmount);
     }
 
     /**
@@ -218,12 +202,8 @@ contract CompoundRelayer is
     function repayBorrowBehalfBatch(
         Repayment[] calldata repayments
     ) external onlyAdmin whenNotPaused {
-        uint256 len = repayments.length;
-        for (uint256 i = 0; i < len; ++i) {
-            ICToken cToken = ICToken(repayments[i].market);
-            address uToken = cToken.underlying();
-
-            _repayBorrowBehalf(cToken, uToken, repayments[i].borrower, repayments[i].amount, repayments[i].defaulted);
+        for (uint256 i = 0; i < repayments.length; ++i) {
+            _repayBorrowBehalf(repayments[i].market, repayments[i].borrower, repayments[i].amount);
         }
     }
 
@@ -266,42 +246,19 @@ contract CompoundRelayer is
 
     /**
      * @dev Repays a borrow on behalf of this compound relayer.
-     * @param cToken The address of the market.
-     * @param uToken The address of the underlying token.
+     * @param market The address of the market.
      * @param borrower The address of the borrower.
      * @param repayAmount The amount of tokens to repay.
-     * @param defaulted True if the borrow is defaulted.
      */
     function _repayBorrowBehalf(
-        ICToken cToken,
-        address uToken,
-        address borrower,
-        uint256 repayAmount,
-        bool defaulted
-    ) internal {
-        uint256 repaidAmount = _transferFromAndRepay(cToken, IERC20Upgradeable(uToken), borrower, repayAmount);
-        if (defaulted) {
-            _redeemAndBurn(cToken, IERC20Mintable(uToken), borrower, repaidAmount);
-        }
-    }
-
-    /**
-     * @dev Repays a borrow on behalf of this compound relayer.
-     *
-     * Emits a {RepayBorrowBehalf} event.
-     *
-     * @param cToken The address of the market.
-     * @param uToken The address of the underlying token.
-     * @param borrower The address of the borrower being repaid.
-     * @param repayAmount The amount of tokens to repay.
-     */
-    function _transferFromAndRepay(
-        ICToken cToken,
-        IERC20Upgradeable uToken,
+        address market,
         address borrower,
         uint256 repayAmount
-    ) internal returns (uint256 actualRepayAmount) {
-        actualRepayAmount = repayAmount == type(uint256).max
+    ) internal {
+        ICToken cToken = ICToken(market);
+        IERC20Upgradeable uToken =  IERC20Upgradeable(cToken.underlying());
+
+        uint256 actualRepayAmount = repayAmount == type(uint256).max
             ? repayAmount = cToken.borrowBalanceCurrent(borrower)
             : repayAmount;
 
@@ -315,31 +272,5 @@ contract CompoundRelayer is
         }
 
         emit RepayBorrowBehalf(borrower, actualRepayAmount);
-    }
-
-    /**
-     * @dev Redeems and burns tokens when a defaulted borrow is being repaid.
-     *
-     * Emits a {RepayDefaultedBorrow} event.
-     *
-     * @param cToken The address of the market.
-     * @param uToken The address of the underlying token.
-     * @param borrower The address of the borrower being repaid.
-     * @param burnAmount The amount of tokens to burn.
-     */
-    function _redeemAndBurn(
-        ICToken cToken,
-        IERC20Mintable uToken,
-        address borrower,
-        uint256 burnAmount
-    ) internal {
-        uint256 redeemResult = cToken.redeemUnderlying(burnAmount);
-        if (redeemResult != 0) {
-            revert CompoundMarketFailure(redeemResult);
-        }
-
-        uToken.burn(burnAmount);
-
-        emit RepayDefaultedBorrow(borrower, burnAmount);
     }
 }
