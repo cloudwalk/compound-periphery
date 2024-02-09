@@ -23,7 +23,6 @@ interface Repayment {
   market: string;
   borrower: string;
   repayAmount: number;
-  defaulted: boolean;
 }
 
 async function setUpFixture<T>(func: () => Promise<T>): Promise<T> {
@@ -35,57 +34,18 @@ async function setUpFixture<T>(func: () => Promise<T>): Promise<T> {
 }
 
 describe("Contract 'CompoundRelayer'", function () {
-  const TOKEN_AMOUNT_STUB = 123;
-  const BORROWER_ADDRESS_STUB = "0x0000000000000000000000000000000000000001";
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-  const MARKET_MINT_FUNCTION_BAD_RESULT = 12301;
-  const MARKET_REDEEM_FUNCTION_BAR_RESULT = 12302;
-  const MARKET_REDEEM_UNDERLYING_BAD_RESULT = 12303;
-  const MARKET_REPAY_BORROW_BEHALF_BAD_RESULT = 12304;
-  const COMPTROLLER_ENTER_MARKET_BAD_RESULT = 12305;
-
-  const BORROW_IS_DEFAULTED = true;
-  const BORROW_IS_NOT_DEFAULTED = false;
-
-  const EVENT_NAME_CONFIGURE_ADMIN = "ConfigureAdmin";
   const EVENT_NAME_ENTER_MARKETS = "EnterMarkets";
-  const EVENT_NAME_MINT_ON_DEBT_COLLECTION = "MintOnDebtCollection";
-  const EVENT_NAME_OWNERSHIP_TRANSFERRED = "OwnershipTransferred";
-  const EVENT_NAME_REPAY_TRUSTED_BORROW = "RepayTrustedBorrow";
-
+  const EVENT_NAME_CONFIGURE_ADMIN = "ConfigureAdmin";
   const EVENT_NAME_REPAY_BORROW_BEHALF = "RepayBorrowBehalf";
-
-  const EVENT_NAME_REPAY_DEFAULTED_BORROW = "RepayDefaultedBorrow";
-  const EVENT_NAME_SET_MINT_ON_DEBT_COLLECTION_CAP = "SetMintOnDebtCollectionCap";
-
-  const EVENT_NAME_MOCK_BORROW_BALANCE_CURRENT = "CTokenMockBorrowBalanceCurrent";
-  const EVENT_NAME_MOCK_MINT_C_TOKEN = "CTokenMockMint";
-  const EVENT_NAME_MOCK_REDEEM = "CTokenMockRedeem";
-  const EVENT_NAME_MOCK_REDEEM_UNDERLYING = "CTokenMockRedeemUnderlying";
   const EVENT_NAME_MOCK_REPAY_BORROW_BEHALF = "CTokenMockRepayBorrowBehalf";
-
-  const EVENT_NAME_MOCK_MINT = "ERC20MockMint";
-  const EVENT_NAME_MOCK_BURN = "ERC20MockBurn";
   const EVENT_NAME_MOCK_TRANSFER_FROM = "ERC20MockTransferFrom";
-
   const EVENT_NAME_CONFIGURE_COMPOUND_PAYER = "ConfigureCompoundPayer";
 
   const REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER = "Ownable: caller is not the owner";
   const REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED = "Initializable: contract is already initialized";
-  const REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED = "Pausable: paused";
-  const REVERT_MESSAGE_IF_NEW_OWNER_IS_ZERO = "Ownable: new owner is the zero address";
-
   const REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED = "AdminAlreadyConfigured";
-  const REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED = "UnauthorizedAdmin";
-  const REVERT_ERROR_IF_COMPOUND_COMPTROLLER_FAILURE = "CompoundComptrollerFailure";
-  const REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE = "CompoundMarketFailure";
-  const REVERT_ERROR_IF_INPUT_ARRAYS_LENGTH_MISMATCH = "InputArraysLengthMismatch";
-  const REVERT_ERROR_IF_MINT_FAILURE = "MintFailure";
-  const REVERT_ERROR_IF_TRANSFER_FROM_FAILURE = "TransferFromFailure";
-  const REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_EXCESS = "MintOnDebtCollectionCapExcess";
-  const REVERT_ERROR_IF_MINT_ON_DEBT_COLLECTION_CAP_UNCHANGED = "MintOnDebtCollectionCapUnchanged";
-  const REVERT_ERROR_IF_OWNER_IS_UNCHANGED = "OwnerUnchanged";
 
   let relayerFactory: ContractFactory;
   let comptrollerFactory: ContractFactory;
@@ -244,7 +204,7 @@ describe("Contract 'CompoundRelayer'", function () {
 
   describe("Function 'rescueERC20()'", () => {
     it("Executes as expected and emits the correct event", async () => {
-      const { agent, relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
+      const { relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
       const tokenAmount = 1000;
       await proveTx(uToken.mint(relayer.address, tokenAmount));
 
@@ -266,90 +226,78 @@ describe("Contract 'CompoundRelayer'", function () {
   });
 
   describe("Function 'repayBorrowBehalf()'", () => {
-    describe("Executes as expected if the borrow is", () => {
-      async function checkExecutionOfRepayBorrowBehalf(params: {
-        borrower: string;
-        repayAmount: BigNumber;
-        defaulted: boolean;
-      }) {
-        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-        const { borrower, repayAmount, defaulted } = params;
+    async function checkExecutionOfRepayBorrowBehalf(params: {
+      borrower: string;
+      repayAmount: BigNumber;
+    }) {
+      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+      const { borrower, repayAmount } = params;
 
-        let market: string = cToken.address;
-        await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
-        const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalf(
-          market,
-          borrower,
-          repayAmount,
-          defaulted
-        );
+      let market: string = cToken.address;
+      await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
+      const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalf(
+        market,
+        borrower,
+        repayAmount
+      );
 
-        await expect(tx)
-          .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
-          .withArgs(borrower, repayAmount);
+      await expect(tx)
+        .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
+        .withArgs(borrower, repayAmount);
 
-        await expect(tx)
-          .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
-          .withArgs(compoundPayer.address, relayer.address, repayAmount);
+      await expect(tx)
+        .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
+        .withArgs(compoundPayer.address, relayer.address, repayAmount);
 
-        await expect(tx)
-          .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
-          .withArgs(borrower, repayAmount);
-      }
+      await expect(tx)
+        .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
+        .withArgs(borrower, repayAmount);
+    }
 
-      describe("Not Defaulted and the token amount is", () => {
-        it("Nonzero", async () => {
-          await checkExecutionOfRepayBorrowBehalf({
-            borrower: user.address,
-            repayAmount: BigNumber.from(1000),
-            defaulted: false
-          });
-        });
+    it("Repays borrow on behalf as expected", async () => {
+      await checkExecutionOfRepayBorrowBehalf({
+        borrower: user.address,
+        repayAmount: BigNumber.from(1000)
       });
     });
   });
 
   describe("Function 'repayBorrowBehalfBatch()'", () => {
-    describe("Executes as expected if the borrow is", () => {
-      async function checkExecutionOfRepayBorrowBehalfBatch(repayments: Repayment[], contracts: AllContracts) {
-        const { relayer, cToken, uToken } = contracts;
-        let borrower = repayments[0].borrower;
-        let repayAmount = repayments[0].repayAmount;
+    async function checkExecutionOfRepayBorrowBehalfBatch(repayments: Repayment[], contracts: AllContracts) {
+      const { relayer, cToken, uToken } = contracts;
+      let borrower = repayments[0].borrower;
+      let repayAmount = repayments[0].repayAmount;
 
-        await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
-        const paramsAsArrayOfTuples = repayments.map(
-          repayment =>
-            [repayment.market, repayment.borrower, repayment.repayAmount, repayment.defaulted]
+      await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
+      const paramsAsArrayOfTuples = repayments.map(
+        repayment =>
+          [repayment.market, repayment.borrower, repayment.repayAmount]
         );
-        const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples);
+      const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples);
 
-        await expect(tx)
-          .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
-          .withArgs(borrower, repayAmount);
+      await expect(tx)
+        .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
+        .withArgs(borrower, repayAmount);
 
-        await expect(tx)
-          .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
-          .withArgs(compoundPayer.address, relayer.address, repayAmount);
+      await expect(tx)
+        .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
+        .withArgs(compoundPayer.address, relayer.address, repayAmount);
 
-        await expect(tx)
-          .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
-          .withArgs(borrower, repayAmount);
-      }
+      await expect(tx)
+        .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
+        .withArgs(borrower, repayAmount);
+    }
 
-      describe("Not Defaulted and the token amount is", () => {
-        it("Nonzero", async () => {
-          const contracts: AllContracts = await setUpFixture(deployAndConfigureAllContracts);
-          await checkExecutionOfRepayBorrowBehalfBatch(
-            [{
-              market: contracts.cToken.address,
-              borrower: user.address,
-              repayAmount: 1000,
-              defaulted: false
-            }],
-            contracts
-          );
-        });
-      });
+    it("Repays borrow on behalf as expected", async () => {
+      const contracts: AllContracts = await setUpFixture(deployAndConfigureAllContracts);
+      await checkExecutionOfRepayBorrowBehalfBatch(
+        [{
+          market: contracts.cToken.address,
+          borrower: user.address,
+          repayAmount: 1000
+        }],
+        contracts
+      );
     });
   });
 });

@@ -13,7 +13,6 @@ interface ICompoundRelayer {
         address market;
         address borrower;
         uint256 amount;
-        bool defaulted;
     }
 
     // -------------------- Events -----------------------------------
@@ -64,13 +63,11 @@ interface ICompoundRelayer {
      * @param market The address of the market.
      * @param borrower The address of a borrower.
      * @param repayAmount The amount of tokens to repay.
-     * @param defaulted True if the borrow is defaulted.
      */
     function repayBorrowBehalf(
         address market,
         address borrower,
-        uint256 repayAmount,
-        bool defaulted
+        uint256 repayAmount
     ) external;
 
     /**
