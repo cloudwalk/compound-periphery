@@ -37,22 +37,20 @@ describe("Contract 'CompoundRelayer'", function () {
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const TOKEN_AMOUNT_STUB = 124;
   const MARKET_MINT_FUNCTION_BAD_RESULT = 12301;
-  const COMPTROLLER_ENTER_MARKET_BAD_RESULT = 12305;
 
-  const EVENT_NAME_ENTER_MARKETS = "EnterMarkets";
   const EVENT_NAME_CONFIGURE_ADMIN = "ConfigureAdmin";
   const EVENT_NAME_REPAY_BORROW_BEHALF = "RepayBorrowBehalf";
   const EVENT_NAME_MOCK_REPAY_BORROW_BEHALF = "CTokenMockRepayBorrowBehalf";
   const EVENT_NAME_MOCK_TRANSFER_FROM = "ERC20MockTransferFrom";
   const EVENT_NAME_CONFIGURE_COMPOUND_PAYER = "ConfigureCompoundPayer";
   const EVENT_NAME_MOCK_BORROW_BALANCE_CURRENT = "CTokenMockBorrowBalanceCurrent";
+  const EVENT_NAME_APPROVAL = "Approval";
 
   const REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER = "Ownable: caller is not the owner";
   const REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED = "Initializable: contract is already initialized";
   const REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED = "Pausable: paused";
 
   const REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED = "AdminAlreadyConfigured";
-  const REVERT_ERROR_IF_COMPOUND_COMPTROLLER_FAILURE = "CompoundComptrollerFailure";
   const REVERT_ERROR_IF_COMPOUND_PAYER_INVALID_ADDRESS = "CompoundPayerInvalidAddress";
   const REVERT_ERROR_IF_COMPOUND_PAYER_ALREADY_CONFIGURED = "CompoundPayerAlreadyConfigured";
   const REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED = "UnauthorizedAdmin";
@@ -123,20 +121,22 @@ describe("Contract 'CompoundRelayer'", function () {
       expect(await relayer.isAdmin(deployer.address)).to.eq(false);
     });
 
-    it("Is reverted if it is called a second time", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      await expect(
-        relayer.initialize()
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED);
-    });
+    describe("Is reverted if", () => {
+      it("It is called a second time", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        await expect(
+          relayer.initialize()
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED);
+      });
 
-    it("Is reverted for the contract implementation if it is called even for the first time", async () => {
-      const relayer = await relayerFactory.deploy();
-      await relayer.deployed();
+      it("It is called even for the first time for the contract implementation", async () => {
+        const relayer = await relayerFactory.deploy();
+        await relayer.deployed();
 
-      await expect(
-        relayer.initialize()
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED);
+        await expect(
+          relayer.initialize()
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_ALREADY_INITIALIZED);
+      });
     });
   });
 
@@ -155,37 +155,39 @@ describe("Contract 'CompoundRelayer'", function () {
       await checkExecutionOfConfigureAdmin({ relayer, newAdminStatus: false });
     });
 
-    it("Is reverted if is called not by the owner", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      await expect(
-        relayer.connect(stranger).configureAdmin(admin.address, true)
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
-    });
+    describe("Is reverted if", () => {
+      it("The caller is not owner", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        await expect(
+          relayer.connect(stranger).configureAdmin(admin.address, true)
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
+      });
 
-    it("Is reverted if the new admin status equals the previously set one", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      let adminStatus = false;
-      expect(await relayer.isAdmin(admin.address)).to.eq(adminStatus);
+      it("The new admin status equals the previously set one", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        let adminStatus = false;
+        expect(await relayer.isAdmin(admin.address)).to.eq(adminStatus);
 
-      await expect(
-        relayer.configureAdmin(admin.address, adminStatus)
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED);
+        await expect(
+          relayer.configureAdmin(admin.address, adminStatus)
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED);
 
-      adminStatus = true;
-      await proveTx(relayer.configureAdmin(admin.address, adminStatus));
+        adminStatus = true;
+        await proveTx(relayer.configureAdmin(admin.address, adminStatus));
 
-      await expect(
-        relayer.configureAdmin(admin.address, adminStatus)
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED);
+        await expect(
+          relayer.configureAdmin(admin.address, adminStatus)
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_ALREADY_CONFIGURED);
+      });
     });
   });
 
   describe("Function 'enterMarket()'", () => {
     it("Executes as expected and emits the correct event", async () => {
-      const { relayer, comptroller, cToken } = await setUpFixture(deployAllContracts);
+      const { relayer, comptroller, cToken, uToken } = await setUpFixture(deployAllContracts);
       await expect(await relayer.enterMarket(cToken.address))
-        .to.emit(comptroller, EVENT_NAME_ENTER_MARKETS)
-        .withArgs(cToken.address, 1);
+        .to.emit(uToken, EVENT_NAME_APPROVAL)
+        .withArgs(relayer.address, cToken.address, ethers.constants.MaxUint256);
     });
 
     it("Is reverted if is called not by the owner", async () => {
@@ -193,14 +195,6 @@ describe("Contract 'CompoundRelayer'", function () {
       await expect(
         relayer.connect(stranger).enterMarket(cToken.address)
       ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
-    });
-
-    it("Is reverted if market is listed", async () => {
-      const { relayer, comptroller, cToken } = await setUpFixture(deployAllContracts);
-      await proveTx(comptroller.setEnterMarketsResult(COMPTROLLER_ENTER_MARKET_BAD_RESULT));
-      await expect(relayer.enterMarket(cToken.address))
-        .to.revertedWithCustomError(relayerFactory, REVERT_ERROR_IF_COMPOUND_COMPTROLLER_FAILURE)
-        .withArgs(COMPTROLLER_ENTER_MARKET_BAD_RESULT);
     });
   });
 
@@ -214,27 +208,29 @@ describe("Contract 'CompoundRelayer'", function () {
       expect(await relayer.compoundPayer()).to.eq(compoundPayer.address);
     });
 
-    it("Is reverted if is called not by the owner", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      await expect(
-        relayer.connect(stranger).configureCompoundPayer(compoundPayer.address)
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
-    });
+    describe("Is reverted if", () => {
+      it("The caller is not owner", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        await expect(
+          relayer.connect(stranger).configureCompoundPayer(compoundPayer.address)
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CALLER_IS_NOT_OWNER);
+      });
 
-    it("Is reverted if compound payer address is zero", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      await expect(
-        relayer.configureCompoundPayer(ZERO_ADDRESS)
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_PAYER_INVALID_ADDRESS);
-    });
+      it("The compound payer address is zero", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        await expect(
+          relayer.configureCompoundPayer(ZERO_ADDRESS)
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_PAYER_INVALID_ADDRESS);
+      });
 
-    it("Is reverted if compound payer address is already configured", async () => {
-      const { relayer } = await setUpFixture(deployAllContracts);
-      await relayer.configureCompoundPayer(compoundPayer.address);
+      it("The compound payer address is already configured", async () => {
+        const { relayer } = await setUpFixture(deployAllContracts);
+        await relayer.configureCompoundPayer(compoundPayer.address);
 
-      await expect(
-        relayer.configureCompoundPayer(compoundPayer.address)
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_PAYER_ALREADY_CONFIGURED);
+        await expect(
+          relayer.configureCompoundPayer(compoundPayer.address)
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_PAYER_ALREADY_CONFIGURED);
+      });
     });
   });
 
@@ -300,7 +296,7 @@ describe("Contract 'CompoundRelayer'", function () {
       }
     }
 
-    describe("The token amount is", () => {
+    describe("Executes as expected if the repayment amount is", () => {
       it("Nonzero and less than 'type(uint256).max'", async () => {
         await checkExecutionOfRepayBorrowBehalf({
           borrower: user.address,
@@ -323,82 +319,82 @@ describe("Contract 'CompoundRelayer'", function () {
       });
     });
 
-    it("Revert If Is Not Admin", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+    describe("Is reverted if", () => {
+      it("The caller does not have the admin role", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
 
-      await expect(
-        relayer.repayBorrowBehalf(
-          cToken.address,
-          user.address,
-          BigNumber.from(TOKEN_AMOUNT_STUB)
-        )
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
-    });
+        await expect(
+          relayer.repayBorrowBehalf(
+            cToken.address,
+            user.address,
+            BigNumber.from(TOKEN_AMOUNT_STUB)
+          )
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
+      });
 
-    it("Revert If Contract Is Paused", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-      await proveTx(relayer.setPauser(deployer.address));
-      await proveTx(relayer.pause());
-      await expect(
-        relayer.connect(admin).repayBorrowBehalf(
-          cToken.address,
-          user.address,
-          BigNumber.from(TOKEN_AMOUNT_STUB)
-        )
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
-    });
+      it("The contract is paused", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(relayer.setPauser(deployer.address));
+        await proveTx(relayer.pause());
+        await expect(
+          relayer.connect(admin).repayBorrowBehalf(
+            cToken.address,
+            user.address,
+            BigNumber.from(TOKEN_AMOUNT_STUB)
+          )
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
+      });
 
-    it("Revert If Contract Is Transfer From Failure", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-      await proveTx(uToken.disableTransferFrom());
+      it("The token transfer fails", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        await proveTx(uToken.disableTransferFrom());
 
-      await expect(
-        relayer.connect(admin).repayBorrowBehalf(
-          cToken.address,
-          user.address,
-          BigNumber.from(TOKEN_AMOUNT_STUB)
-        )
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_TRANSFER_FROM_FAILURE);
-    });
+        await expect(
+          relayer.connect(admin).repayBorrowBehalf(
+            cToken.address,
+            user.address,
+            BigNumber.from(TOKEN_AMOUNT_STUB)
+          )
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_TRANSFER_FROM_FAILURE);
+      });
 
-    it("Revert If Contract Is Contract Market Failure", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-      cToken.setRepayBorrowBehalfResult(MARKET_MINT_FUNCTION_BAD_RESULT);
-      await expect(
-        relayer.connect(admin).repayBorrowBehalf(
-          cToken.address,
-          user.address,
-          BigNumber.from(TOKEN_AMOUNT_STUB)
-        )
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE)
-        .withArgs(MARKET_MINT_FUNCTION_BAD_RESULT);
+      it("The repay function of the market fails", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        cToken.setRepayBorrowBehalfResult(MARKET_MINT_FUNCTION_BAD_RESULT);
+        await expect(
+          relayer.connect(admin).repayBorrowBehalf(
+            cToken.address,
+            user.address,
+            BigNumber.from(TOKEN_AMOUNT_STUB)
+          )
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_COMPOUND_MARKET_FAILURE)
+          .withArgs(MARKET_MINT_FUNCTION_BAD_RESULT);
+      });
     });
   });
 
   describe("Function 'repayBorrowBehalfBatch()'", () => {
     async function checkExecutionOfRepayBorrowBehalfBatch(repayments: Repayment[], contracts: AllContracts) {
       const { relayer, cToken, uToken } = contracts;
-      let borrower = repayments[0].borrower;
-      let repayAmount = repayments[0].repayAmount;
 
-      await proveTx(cToken.setBorrowBalanceCurrentResult(repayAmount));
       const paramsAsArrayOfTuples = repayments.map(
-        repayment =>
-          [repayment.market, repayment.borrower, repayment.repayAmount]
-        );
+        repayment => [repayment.market, repayment.borrower, repayment.repayAmount]
+      );
       const tx: TransactionResponse = await relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples);
 
-      await expect(tx)
-        .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
-        .withArgs(borrower, repayAmount);
+      for (const repayment of repayments) {
+        await expect(tx)
+          .to.emit(relayer, EVENT_NAME_REPAY_BORROW_BEHALF)
+          .withArgs(repayment.borrower, repayment.repayAmount);
 
-      await expect(tx)
-        .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
-        .withArgs(compoundPayer.address, relayer.address, repayAmount);
+        await expect(tx)
+          .to.emit(uToken, EVENT_NAME_MOCK_TRANSFER_FROM)
+          .withArgs(compoundPayer.address, relayer.address, repayment.repayAmount);
 
-      await expect(tx)
-        .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
-        .withArgs(borrower, repayAmount);
+        await expect(tx)
+          .to.emit(cToken, EVENT_NAME_MOCK_REPAY_BORROW_BEHALF)
+          .withArgs(repayment.borrower, repayment.repayAmount);
+      }
     }
 
     function getParamsAsTuple(cToken: Contract) {
@@ -413,40 +409,44 @@ describe("Contract 'CompoundRelayer'", function () {
       );
     }
 
-    it("Repays borrow on behalf as expected", async () => {
-      const contracts: AllContracts = await setUpFixture(deployAndConfigureAllContracts);
-      await checkExecutionOfRepayBorrowBehalfBatch(
-        [
-          {
-            market: contracts.cToken.address,
-            borrower: user.address,
-            repayAmount: TOKEN_AMOUNT_STUB / 2
-          },
-          {
-            market: contracts.cToken.address,
-            borrower: user.address,
-            repayAmount: TOKEN_AMOUNT_STUB / 2
-          }],
-        contracts
-      );
+    describe("Executes as expected if", () => {
+      it("The borrow was repaid on behalf as expected", async () => {
+        const contracts: AllContracts = await setUpFixture(deployAndConfigureAllContracts);
+        await checkExecutionOfRepayBorrowBehalfBatch(
+          [
+            {
+              market: contracts.cToken.address,
+              borrower: user.address,
+              repayAmount: Math.floor(TOKEN_AMOUNT_STUB / 2)
+            },
+            {
+              market: contracts.cToken.address,
+              borrower: user.address,
+              repayAmount: Math.floor(TOKEN_AMOUNT_STUB / 3)
+            }],
+          contracts
+        );
+      });
     });
 
-    it("Revert If Is Not Admin", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-      const paramsAsArrayOfTuples = getParamsAsTuple(cToken);
-      await expect(
-        relayer.repayBorrowBehalfBatch(paramsAsArrayOfTuples)
-      ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
-    });
+    describe("Is reverted if", () => {
+      it("The caller does not have the admin role", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        const paramsAsArrayOfTuples = getParamsAsTuple(cToken);
+        await expect(
+          relayer.repayBorrowBehalfBatch(paramsAsArrayOfTuples)
+        ).to.be.revertedWithCustomError(relayer, REVERT_ERROR_IF_ADMIN_IS_UNAUTHORIZED);
+      });
 
-    it("Revert If Contract Is Paused", async () => {
-      const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
-      const paramsAsArrayOfTuples = getParamsAsTuple(cToken);
-      await proveTx(relayer.setPauser(deployer.address));
-      await proveTx(relayer.pause());
-      await expect(
-        relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples)
-      ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
+      it("The contract is paused", async () => {
+        const { relayer, cToken, uToken } = await setUpFixture(deployAndConfigureAllContracts);
+        const paramsAsArrayOfTuples = getParamsAsTuple(cToken);
+        await proveTx(relayer.setPauser(deployer.address));
+        await proveTx(relayer.pause());
+        await expect(
+          relayer.connect(admin).repayBorrowBehalfBatch(paramsAsArrayOfTuples)
+        ).to.be.revertedWith(REVERT_MESSAGE_IF_CONTRACT_IS_PAUSED);
+      });
     });
   });
 });
