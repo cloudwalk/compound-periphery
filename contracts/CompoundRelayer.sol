@@ -130,13 +130,6 @@ contract CompoundRelayer is
      *
      */
     function enterMarket(address market) external onlyOwner {
-        address[] memory cTokens = new address[](1);
-        cTokens[0] = market;
-        uint256[] memory enterMarketResults = IComptroller(ICToken(market).comptroller()).enterMarkets(cTokens);
-        if (enterMarketResults[0] != 0) {
-            revert CompoundComptrollerFailure(enterMarketResults[0]);
-        }
-
         IERC20Upgradeable uToken = IERC20Upgradeable(ICToken(market).underlying());
         uToken.approve(market, type(uint256).max);
     }
